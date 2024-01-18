@@ -15,5 +15,10 @@ dStruct.o: dStruct.c dStruct.h
 test_dStruct.o: test_dStruct.c dStruct.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+.PHONY = clean tar
+
 clean:
 	rm -f test_dStruct *.o
+
+tar: dStruct.c dStruct.h test_dStruct.c makefile
+	tar -zcvf lab1.tar.gz dStruct.c dStruct.h test_dStruct.c makefile

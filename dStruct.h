@@ -46,8 +46,8 @@ int dStruct_getStatusByPid(const dStruct* ds, int pid);
 void dStruct_setStatusByPid(dStruct* ds, int pid, int status);
 
 // Search functions
-dStructEntry* dStruct_searchByPid(const dStruct* ds, int pid);
-void dStruct_searchByNicenessAndStatus(const dStruct* ds, int niceness, int status);
+bool dStruct_searchByPid(const dStruct* ds, int pid);
+bool dStruct_searchByNicenessAndStatus(const dStruct* ds, int niceness, int status);
 
 // Print functions
 void dStruct_printAllEntries(const dStruct* ds);

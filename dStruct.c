@@ -46,6 +46,7 @@ void dStruct_popEntry(dStruct* ds) {
         free(temp);
         ds->size--;
     }
+    printf("\nAn entry has been popped\n");
 }
 
 dStructEntry* dStruct_getEntryByPid(const dStruct* ds, int pid) {
@@ -82,15 +83,104 @@ void dStruct_setCputimeByPid(dStruct* ds, int pid, float cputime) {
     if (entry != NULL) {
         entry->cputime = cputime;
     }
+    printf("\nCputime has been changed\n");
 }
 
 void dStruct_printAllEntries(const dStruct* ds) {
-    printf("All Entries:\n");
+    printf("\nAll Entries:\n");
     dStructEntry* current = ds->head;
     while (current != NULL) {
         printf("PID: %d, Status: %d, Niceness: %d, Cputime: %.2f, ProcTime: %.2f\n",
                current->pid, current->status, current->niceness,
                current->cputime, current->procTime);
-        current = current->next;
+               current = current->next;
     }
 }
+
+void dStruct_printEntriesByNicenessAndStatus(const dStruct* ds, int niceness, int status){
+    printf("\nPrinting entries by Niceness: %d and Status: %d\n",niceness,status);
+    dStructEntry* current = ds->head;
+
+    while(current != NULL){
+
+        if (current->niceness == niceness || current->status == status){
+            printf("PID: %d, Status: %d, Niceness: %d, Cputime: %.2f, ProcTime: %.2f\n",
+               current->pid, current->status, current->niceness,
+               current->cputime, current->procTime);
+        }
+        current = current->next;
+
+    }
+
+}
+
+void dStruct_printEntryByPid(const dStruct* ds, int pid){
+    printf("\nPrinting entry by Pid:\n");
+
+    dStructEntry* current = ds->head;
+    while (current->pid != pid) {
+        current = current->next;
+    }
+    printf("PID: %d, Status: %d, Niceness: %d, Cputime: %.2f, ProcTime: %.2f\n",
+               current->pid, current->status, current->niceness,
+               current->cputime, current->procTime);
+
+
+
+}
+
+bool dStruct_searchByPid(const dStruct* ds, int pid){
+
+    dStructEntry* current = ds->head;
+    while (current != NULL) {
+        if (current->pid == pid) {
+            return true;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+bool dStruct_searchByNicenessAndStatus(const dStruct* ds, int niceness, int status){
+
+    dStructEntry* current = ds->head;
+    while (current != NULL) {
+        if (current->niceness == niceness || current->status == status) {
+            return true;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+int dStruct_getNicenessByPid(const dStruct *ds, int pid){
+    dStructEntry* entry = dStruct_getEntryByPid(ds,pid);
+    if (entry != NULL) {
+        return entry->niceness;
+    }
+}
+
+void dStruct_setNicenessByPid(dStruct *ds, int pid, int niceness) {
+    dStructEntry* entry = dStruct_getEntryByPid(ds, pid);
+    if (entry != NULL) {
+        entry->niceness = niceness;
+    }
+    printf("\nNiceness has been changed\n");
+}
+
+
+int dStruct_getStatusByPid(const dStruct *ds, int pid){
+    dStructEntry* entry = dStruct_getEntryByPid(ds,pid);
+    if (entry != NULL) {
+        return entry->status;
+    }
+}
+
+void dStruct_setStatusByPid(dStruct *ds, int pid, int status) {
+    dStructEntry* entry = dStruct_getEntryByPid(ds, pid);
+    if (entry != NULL) {
+        entry->status = status;
+    }
+    printf("\nStatus has been changed\n");
+}
+
+
