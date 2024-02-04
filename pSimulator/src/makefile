@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -std=c11
 LIBS = -lcairo
 
-.PHONY: all clean tar run
+.PHONY: all clean tar run tar
 
 all: test_dStruct
 
@@ -26,10 +26,10 @@ newProc:
 .PHONY = clean tar
 
 clean:
-	rm -f test_dStruct *.o
+	rm -f test_dStruct *.o procSim
 
-tar: dStruct.c dStruct.h test_dStruct.c makefile
-	tar -zcvf lab1.tar.gz dStruct.c dStruct.h test_dStruct.c makefile
+tar:
+	@(cd ../.. && tar -zcvf pSimulator.tar.gz pSimulator)
 
 run:
 	@echo "Before newProc:"
