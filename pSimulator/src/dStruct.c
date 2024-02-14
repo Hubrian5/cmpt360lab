@@ -18,28 +18,6 @@ void dStruct_destroy(dStruct* ds) {
     ds->size = 0;
 }
 
-/* This only pushes to the head and the first entry gets pushed back.*/
-// bool dStruct_pushEntry(dStruct* ds, int pid, int status, int niceness, float cputime, float procTime) {
-//     dStructEntry* newEntry = (dStructEntry*)malloc(sizeof(dStructEntry));
-//     if (newEntry == NULL) {
-//         printf("Memory allocation failed.\n");
-//         return false; // Failure
-//     }
-
-//     newEntry->pid = pid;
-//     newEntry->status = status;
-//     newEntry->niceness = niceness;
-//     newEntry->cputime = cputime;
-//     newEntry->procTime = procTime;
-
-//     // Insert at the beginning of the linked list
-//     newEntry->next = ds->head;
-//     ds->head = newEntry;
-//     ds->size++;
-
-//     return true; // Success
-// }
-
 /* Function to add entries to the linked list queue. First entry is head, next entries are added to the tail.*/
 bool dStruct_pushEntry(dStruct* ds, int pid, int status, int niceness, float cputime, float procTime) {
     dStructEntry* newEntry = (dStructEntry*)malloc(sizeof(dStructEntry));
@@ -218,4 +196,38 @@ void dStruct_setStatusByPid(dStruct *ds, int pid, int status) {
     printf("\nStatus has been changed\n");
 }
 
+void dStruct_sortByShortestProcTime(dStruct* ds) {
+    if (ds->size < 2) return; // No need to sort if the queue has 0 or 1 element
 
+    bool swapped;
+    do {
+        swapped = false;
+        dStructEntry* current = ds->head;
+        dStructEntry* prev = NULL;
+        dStructEntry* next = current->next;
+
+        while (next != NULL) {
+            if (current->procTime > next->procTime) {
+                swapped = true; // A swap is needed
+                
+                if (prev) {
+                    prev->next = next;
+                } else {
+                    ds->head = next; // Update head if the first two elements are swapped
+                }
+
+                // Swapping nodes
+                current->next = next->next;
+                next->next = current;
+
+                // Updating pointers for next iteration
+                prev = next;
+                next = current->next;
+            } else {
+                prev = current;
+                current = next;
+                next = next->next;
+            }
+        }
+    } while (swapped);
+}

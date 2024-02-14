@@ -5,6 +5,14 @@
 #include <dirent.h> // directory control
 #include <time.h> // get current date
 #include <stdbool.h> // true,false
+#include <unistd.h> // sleep
+
+#define TIME_DT 0.1 // time increment
+#define TIME_JIFFY 0.1 // time quantum
+// Change their values to 1 and the others to 0 to run that specific algorithm
+#define ALGOR_FIFO 1
+#define ALGOR_SJF 0
+#define ALGOR_RR 0
 
 dStruct readyQueue;
 dStruct runningQueue;
@@ -14,16 +22,19 @@ void initializeQueues();
 void addProcessToReadyQueue(int proctime, int niceness);
 bool isFolderEmpty(const char *folderPath);
 void processNewProcesses(dStruct* readyQueue);
+void processAllProcesses(dStruct* readyQueue);
 void createLogFile();
 void transferProcessToRunning();
 void incrementCpuTimeInRunningQueue();
 void checkAndRemoveProcessFromRunningQueue();
 void checkAndCompleteSimulation();
 void logQueueStatus();
+void sortReadyQueueByShortestProcTime();
+void incrementCpuTimeInRunningQueueTimeQuantum();
 
 // Global Variables
 int nextPid = 1; // Counter for unique PID
-int t = 0; // Global Time Variable
+float t = 0; // Global Time Variable
 bool processesRemaining = true; // Flag to end loop
 
 int main() {
@@ -32,27 +43,55 @@ int main() {
     createLogFile();
     printf("Queues initialized. Logfile Created. Simulation ready to start.\n");
 
-    while(processesRemaining == true){
-        // Process files in from newProc and push into readyQueue.
-        processNewProcesses(&readyQueue);
+    if(ALGOR_FIFO == 1){
+        while(processesRemaining == true){
+            // Process files in from newProc and push into readyQueue.
+            processNewProcesses(&readyQueue);
 
-        // Transfer process from readyQueue to runningQueue is running is empty.
-        transferProcessToRunning();
+            // Transfer process from readyQueue to runningQueue is running is empty.
+            transferProcessToRunning();
 
-        // Log both the queues to the logfile
-        logQueueStatus();
+            // Log both the queues to the logfile
+            logQueueStatus(); // Global time variable will log a completed process the way its currently set up
 
-        // Check if process in running is complete (cputime>=proctime) then remove it.
-        checkAndRemoveProcessFromRunningQueue();
+            // Check if process in running is complete (cputime>=proctime) then remove it.
+            checkAndRemoveProcessFromRunningQueue();
 
-        // Increment cputime at end of loop and global time
-        incrementCpuTimeInRunningQueue();
-        t++; 
-        printf("End of time leap\n\n");
+            // Increment cputime at end of loop and global time
+            incrementCpuTimeInRunningQueue();
+            t += TIME_DT;
+            printf("End of time leap\n");
 
-        // Check if newProc is empty, running and ready queue is empty then end loop if it is.
-        checkAndCompleteSimulation() ;
-        sleep(1);
+            // Check if newProc is empty, running and ready queue is empty then end loop if it is.
+            checkAndCompleteSimulation();
+            sleep(1);
+        }
+    }
+
+    else if (ALGOR_SJF == 1){
+        while(processesRemaining == true){
+            processAllProcesses(&readyQueue);
+            dStruct_sortByShortestProcTime(&readyQueue); // Short readyQueue by shortest job first
+            transferProcessToRunning();
+            logQueueStatus();
+            checkAndRemoveProcessFromRunningQueue();
+            incrementCpuTimeInRunningQueue();
+            t += TIME_DT;
+            printf("End of time leap\n");
+            checkAndCompleteSimulation();
+            sleep(1);
+        }
+    }
+
+    else if (ALGOR_RR == 1){
+        while(processesRemaining == true){
+            processAllProcesses(&readyQueue);
+            roundRobinExecution(); // Transfers processes to respective queue and runs for time quantum and increments cputime
+            t += TIME_DT;
+            printf("End of time leap\n");
+            checkAndCompleteSimulation();
+
+        }
     }
 
     return 0;
@@ -94,7 +133,47 @@ void processNewProcesses(dStruct* readyQueue) {
                 remove(filePath);
                 
                 // Exit after processing one file
-                break;
+                break; // remove this to process more than one file
+            }
+        }
+        closedir(dir);
+    } else {
+        // Could not open directory
+        perror("Unable to open directory");
+    }
+}
+
+// This just processes more than one file into the readyQueue
+void processAllProcesses(dStruct* readyQueue) {
+    DIR *dir;
+    struct dirent *ent;
+    char *folderPath = "../newProc";
+
+    if ((dir = opendir(folderPath)) != NULL) {
+        while ((ent = readdir(dir)) != NULL) {
+            // Construct the full path for each directory entry
+            char filePath[1024];
+            snprintf(filePath, sizeof(filePath), "%s/%s", folderPath, ent->d_name);
+
+            // Skip "." and ".." entries
+            if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+                continue;
+            }
+
+            // Attempt to open the file
+            FILE *file = fopen(filePath, "r");
+            if (file) {
+                int niceness;
+                float proctime;
+                // If the file is successfully opened, read proctime and niceness
+                if (fscanf(file, "%f, %d", &proctime, &niceness) == 2) {
+                    // Add the process to the ready queue
+                    dStruct_pushEntry(readyQueue, nextPid++, 1, niceness, 0, proctime); // grabs proctime, gives unique pid, sets ready=1, stores niceness, sets cputime=0
+                }
+                fclose(file);
+                // Remove the file after processing. Turn off while testing
+                remove(filePath);
+                
             }
         }
         closedir(dir);
@@ -150,7 +229,7 @@ void transferProcessToRunning() {
 
             // Now push the captured process details onto the runningQueue. Increments cputime 
             bool success = dStruct_pushEntry(&runningQueue, pid, status, niceness, cputime, procTime);
-            t++; // increment global time
+            //t += TIME_DT; // increment global time
             if (success) {
                 printf("Process %d transferred from readyQueue to runningQueue.\n", pid);
             } else {
@@ -170,6 +249,14 @@ void incrementCpuTimeInRunningQueue() {
         current->cputime += 1.0; // Increment by 1.0 or another value as needed
         // Print the current process ID and its updated cputime
         //printf("Process ID %d, new cputime: %.2f\n", current->pid, current->cputime);
+        current = current->next;
+    }
+}
+
+void incrementCpuTimeInRunningQueueTimeQuantum() {
+    dStructEntry* current = runningQueue.head;
+    while (current != NULL) {
+        current->cputime += TIME_JIFFY;
         current = current->next;
     }
 }
@@ -241,20 +328,51 @@ void logQueueStatus() {
         return;
     }
 
-    // Log the status for the process in the readyQueue, if any
-    if (readyQueue.size > 0) {
-        fprintf(logfile, "%d, %d, 1, %d, %d, %d, 0\n",
-                t, readyQueue.head->pid, readyQueue.head->niceness,
-                (int)readyQueue.head->cputime, (int)readyQueue.head->procTime);
+    // Log the status for the process in the readyQueue, if any.
+    for (dStructEntry* curr = readyQueue.head; curr != NULL; curr = curr->next) {
+        fprintf(logfile, "%.2f, %d, 1, %d, %.2f, %.2f, 0\n", 
+            t, curr->pid, curr->niceness,
+            curr->cputime, curr->procTime);
     }
+
 
     // Log the status for the process in the runningQueue, if any. Format: global time variable, PID, niceness, cputime, procTime, whichQueue(0 = ready, 1 = running)
     if (runningQueue.size > 0) {
         int status = (runningQueue.head->cputime >= runningQueue.head->procTime) ? 3 : 2; // This just makes status=3(complete) if cputime >= procTime
-        fprintf(logfile, "%d, %d, %d, %d, %d, %d, 1\n",
+        fprintf(logfile, "%.2f, %d, %d, %d, %.2f, %.2f, 1\n",
                 t, runningQueue.head->pid, status, runningQueue.head->niceness,
-                (int)runningQueue.head->cputime, (int)runningQueue.head->procTime);
+                runningQueue.head->cputime, runningQueue.head->procTime);
     }
 
     fclose(logfile); // Close the file after logging
+}
+/* */
+void roundRobinExecution() {
+    // Check if the runningQueue is empty and readyQueue has processes to run
+    if (runningQueue.size == 0 && readyQueue.size > 0) {
+        // Move the first process from readyQueue to runningQueue
+        transferProcessToRunning();
+    }
+
+    // Execute the process in runningQueue for one time quantum
+    dStructEntry* runningProcess = runningQueue.head;
+    if (runningProcess != NULL) {
+        logQueueStatus(); 
+        incrementCpuTimeInRunningQueueTimeQuantum(); // increment cputime by time quantum
+        // Check if the process has completed its execution
+        if (runningProcess->cputime >= runningProcess->procTime) {
+            // Process completed, remove it from runningQueue
+            dStruct_popEntry(&runningQueue);
+        } else {
+            // Process not completed, move it to the back of the readyQueue
+            printf("Moving process %d from runningQueue back to readyQueue\n", runningProcess->pid);
+            dStruct_pushEntry(&readyQueue, runningProcess->pid, runningProcess->status, runningProcess->niceness, runningProcess->cputime, runningProcess->procTime);
+            dStruct_popEntry(&runningQueue);
+        }
+    }
+
+    // After executing the current running process, transfer the next process from readyQueue to runningQueue for the next round
+    if (readyQueue.size > 0) {
+        transferProcessToRunning();
+    }
 }
