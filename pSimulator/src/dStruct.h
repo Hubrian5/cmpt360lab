@@ -54,4 +54,7 @@ void dStruct_printAllEntries(const dStruct* ds);
 void dStruct_printEntryByPid(const dStruct* ds, int pid);
 void dStruct_printEntriesByNicenessAndStatus(const dStruct* ds, int niceness, int status);
 
+// Sorting
+void dStruct_sortByShortestProcTime(dStruct* ds);
+
 #endif // DSTRUCT_H

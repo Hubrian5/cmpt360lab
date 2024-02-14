@@ -20,8 +20,9 @@ test_dStruct.o: test_dStruct.c dStruct.h
 
 newProc:
 	mkdir -p ../newProc
-	echo "3, 6" > ../newProc/fast.txt
-	echo "10, 9" > ../newProc/slow.txt
+	echo "5, 6" > ../newProc/slow.txt
+	echo "3, 9" > ../newProc/fast.txt
+	echo "4, 10" >../newProc/medium.txt
 
 .PHONY = clean tar
 
