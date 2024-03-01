@@ -62,6 +62,35 @@ void dStruct_popEntry(dStruct* ds) {
     //printf("\nAn entry has been popped\n");
 }
 
+bool dStruct_popSpecificEntry(dStruct* ds, int pid) {
+    if (ds == NULL || ds->head == NULL) return false;
+
+    dStructEntry* current = ds->head;
+    dStructEntry* prev = NULL;
+
+    // Traverse the list to find the entry to remove
+    while (current != NULL) {
+        if (current->pid == pid) {
+            if (prev != NULL) {
+                // Bypass the current entry
+                prev->next = current->next;
+            } else {
+                // Remove the head of the list
+                ds->head = current->next;
+            }
+
+            free(current); // Deallocate memory of the removed entry
+            ds->size--; // Decrement the size of the list
+            return true; // Return success
+        }
+        prev = current;
+        current = current->next;
+    }
+
+    return false; // Entry not found
+}
+
+
 dStructEntry* dStruct_getEntryByPid(const dStruct* ds, int pid) {
     dStructEntry* current = ds->head;
     while (current != NULL) {
@@ -170,6 +199,7 @@ int dStruct_getNicenessByPid(const dStruct *ds, int pid){
     if (entry != NULL) {
         return entry->niceness;
     }
+    return -1;
 }
 
 void dStruct_setNicenessByPid(dStruct *ds, int pid, int niceness) {
@@ -186,6 +216,7 @@ int dStruct_getStatusByPid(const dStruct *ds, int pid){
     if (entry != NULL) {
         return entry->status;
     }
+    return -1;
 }
 
 void dStruct_setStatusByPid(dStruct *ds, int pid, int status) {

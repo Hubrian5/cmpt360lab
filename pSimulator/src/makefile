@@ -4,7 +4,7 @@ LIBS = -lcairo
 
 .PHONY: all clean tar run tar
 
-all: test_dStruct
+all: procSim
 
 procSim: dStruct.c procSim.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
@@ -20,9 +20,9 @@ test_dStruct.o: test_dStruct.c dStruct.h
 
 newProc:
 	mkdir -p ../newProc
-	echo "5, 6" > ../newProc/slow.txt
-	echo "3, 9" > ../newProc/fast.txt
-	echo "4, 10" >../newProc/medium.txt
+	echo "5, 2" > ../newProc/slow.txt
+	echo "3, 4" > ../newProc/fast.txt
+	echo "4, 5" >../newProc/medium.txt
 
 .PHONY = clean tar
 
@@ -32,6 +32,32 @@ clean:
 tar:
 	@(cd ../.. && tar -zcvf pSimulator.tar.gz pSimulator)
 
+procSimRR: dStruct.c procSimRR.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
+procSimSJF: dStruct.c procSimSJF.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
+
+procSimFIFO: dStruct.c procSimFIFO.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
+
+
+test:
+	@ls ../newProc
+	@make newProc
+	@ls ../newProc
+	@make procSimRR
+	@./procSimRR
+	@make procSimSJF
+	@./procSimSJF
+	@make procSimFIFO
+	@./procSimFIFO
+	@ls ../newProc
+	python3 plotData.py ../log/"log-RR.txt"
+	python3 plotData.py ../log/"log-SJF.txt"
+	python3 plotData.py ../log/"log-FIFO.txt"
+
+
+
 run:
 	@echo "Before newProc:"
 	@ls ../newProc
@@ -40,7 +66,7 @@ run:
 	@ls ../newProc
 	@make procSim
 	@./procSim
-	@echo "After procSim:"
+	@echo "After procSim has run:"
 	@ls ../newProc
 	@echo "Log content:"
 	@cat ../log/log-`date +'%m-%d-%y'`.txt

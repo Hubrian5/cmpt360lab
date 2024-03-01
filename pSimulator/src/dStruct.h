@@ -30,6 +30,7 @@ void dStruct_destroy(dStruct* ds);
 // Entry manipulation functions
 bool dStruct_pushEntry(dStruct* ds, int pid, int status, int niceness, float cputime, float procTime);
 void dStruct_popEntry(dStruct* ds);
+bool dStruct_popSpecificEntry(dStruct* ds, int pid);
 
 // Get entry functions
 dStructEntry* dStruct_getEntryByPid(const dStruct* ds, int pid);

@@ -9,16 +9,13 @@
 
 #define TIME_DT 0.1 // time increment
 #define TIME_JIFFY 0.1 // time quantum
-#define TIME_RESET 5.0 // any value lower than total time to run
 // Change their values to 1 and the others to 0 to run that specific algorithm
 #define ALGOR_FIFO 0
 #define ALGOR_SJF 0
-#define ALGOR_RR 0
-#define ALGOR_MLFQ 1
+#define ALGOR_RR 1
 
 dStruct readyQueue;
-dStruct runningQueue; 
-dStruct runningQueue1, runningQueue2, runningQueue3, runningQueue4, runningQueue5; // MLFQ only, 5 = highest, 1 = lowest
+dStruct runningQueue;
 
 // Function prototype for initializing queues
 void initializeQueues();
@@ -34,17 +31,10 @@ void checkAndCompleteSimulation();
 void logQueueStatus();
 void sortReadyQueueByShortestProcTime();
 void incrementCpuTimeInRunningQueueTimeQuantum();
-void roundRobinExecution();
-void transferProcessesToPriorityQueues();
-void printAllRunningQueues();
-void runPriorityRoundRobin();
-void resetProcessPriorities(dStruct* queues[], int numQueues);
-void checkPriorityEmpty();
-
 
 // Global Variables
 int nextPid = 1; // Counter for unique PID
-double t = 0; // Global Time Variable
+float t = 0; // Global Time Variable
 bool processesRemaining = true; // Flag to end loop
 
 int main() {
@@ -81,7 +71,7 @@ int main() {
     else if (ALGOR_SJF == 1){
         while(processesRemaining == true){
             processAllProcesses(&readyQueue);
-            dStruct_sortByShortestProcTime(&readyQueue); // Sort readyQueue by shortest job first
+            dStruct_sortByShortestProcTime(&readyQueue); // Short readyQueue by shortest job first
             transferProcessToRunning();
             logQueueStatus();
             checkAndRemoveProcessFromRunningQueue();
@@ -100,18 +90,7 @@ int main() {
             t += TIME_DT;
             printf("End of time leap\n");
             checkAndCompleteSimulation();
-        }
-    }
 
-    else if (ALGOR_MLFQ == 1){
-        while(processesRemaining == true){
-            processAllProcesses(&readyQueue);
-            transferProcessesToPriorityQueues();
-            if(t == 0){ // initial loop to log the start
-                logQueueStatus();
-            }
-            runPriorityRoundRobin();
-            checkPriorityEmpty();
         }
     }
 
@@ -121,12 +100,6 @@ int main() {
 void initializeQueues() {
     dStruct_init(&readyQueue);
     dStruct_init(&runningQueue);
-    // Initialize priority queues
-    dStruct_init(&runningQueue1);
-    dStruct_init(&runningQueue2);
-    dStruct_init(&runningQueue3);
-    dStruct_init(&runningQueue4);
-    dStruct_init(&runningQueue5);
 }
 
 void processNewProcesses(dStruct* readyQueue) {
@@ -149,16 +122,16 @@ void processNewProcesses(dStruct* readyQueue) {
             FILE *file = fopen(filePath, "r");
             if (file) {
                 int niceness;
-                double proctime;
+                float proctime;
                 // If the file is successfully opened, read proctime and niceness
-                if (fscanf(file, "%lf, %d", &proctime, &niceness) == 2) {
+                if (fscanf(file, "%f, %d", &proctime, &niceness) == 2) {
                     // Add the process to the ready queue
                     dStruct_pushEntry(readyQueue, nextPid++, 1, niceness, 0, proctime); // grabs proctime, gives unique pid, sets ready=1, stores niceness, sets cputime=0
                 }
                 fclose(file);
                 // Remove the file after processing. Turn off while testing
                 remove(filePath);
-                
+
                 // Exit after processing one file
                 break; // remove this to process more than one file
             }
@@ -191,16 +164,16 @@ void processAllProcesses(dStruct* readyQueue) {
             FILE *file = fopen(filePath, "r");
             if (file) {
                 int niceness;
-                double proctime;
+                float proctime;
                 // If the file is successfully opened, read proctime and niceness
-                if (fscanf(file, "%lf, %d", &proctime, &niceness) == 2) {
+                if (fscanf(file, "%f, %d", &proctime, &niceness) == 2) {
                     // Add the process to the ready queue
                     dStruct_pushEntry(readyQueue, nextPid++, 1, niceness, 0, proctime); // grabs proctime, gives unique pid, sets ready=1, stores niceness, sets cputime=0
                 }
                 fclose(file);
                 // Remove the file after processing. Turn off while testing
                 remove(filePath);
-                
+
             }
         }
         closedir(dir);
@@ -221,7 +194,7 @@ void createLogFile() {
     struct tm *t = localtime(&now);
 
     // Format date as mm-dd-yy
-    strftime(dateStr, sizeof(dateStr), "%m-%d-%y.txt", t);
+    strftime(dateStr, sizeof(dateStr), "RR.txt", t);
 
     // Construct log file path and name
     char logFilePath[50];
@@ -248,13 +221,13 @@ void transferProcessToRunning() {
             int pid = headProcess->pid;
             int status = headProcess->status;
             int niceness = headProcess->niceness;
-            double cputime = headProcess->cputime;
-            double procTime = headProcess->procTime;
+            float cputime = headProcess->cputime;
+            float procTime = headProcess->procTime;
 
             // Pop the process from the readyQueue
             dStruct_popEntry(&readyQueue);
 
-            // Now push the captured process details onto the runningQueue. Increments cputime 
+            // Now push the captured process details onto the runningQueue. Increments cputime
             bool success = dStruct_pushEntry(&runningQueue, pid, status, niceness, cputime, procTime);
             //t += TIME_DT; // increment global time
             if (success) {
@@ -357,7 +330,7 @@ void logQueueStatus() {
 
     // Log the status for the process in the readyQueue, if any.
     for (dStructEntry* curr = readyQueue.head; curr != NULL; curr = curr->next) {
-        fprintf(logfile, "%.2f, %d, 1, %d, %.2f, %.2f, 0\n", 
+        fprintf(logfile, "%.2f, %d, 1, %d, %.2f, %.2f, 0\n",
             t, curr->pid, curr->niceness,
             curr->cputime, curr->procTime);
     }
@@ -371,22 +344,8 @@ void logQueueStatus() {
                 runningQueue.head->cputime, runningQueue.head->procTime);
     }
 
-    if (ALGOR_MLFQ == 1) {
-        dStruct* queues[] = {&runningQueue1, &runningQueue2, &runningQueue3, &runningQueue4, &runningQueue5};
-        for (int i = 0; i < 5; i++) {
-            for (dStructEntry* curr = queues[i]->head; curr != NULL; curr = curr->next) {
-                // Set status to 3 if cputime >= procTime, otherwise leave it unchanged
-                int status = (curr->cputime >= curr->procTime) ? 3 : curr->status;
-                fprintf(logfile, "%.2f, %d, %d, %d, %.2f, %.2f, %d\n", 
-                    t, curr->pid, status, curr->niceness,
-                    curr->cputime, curr->procTime, i + 1); // i+1 is their current priority level queue.
-            }
-        }
-    }
-
     fclose(logfile); // Close the file after logging
 }
-
 void roundRobinExecution() {
     if (runningQueue.size == 0 && readyQueue.size > 0) {
         transferProcessToRunning();
@@ -395,7 +354,7 @@ void roundRobinExecution() {
     dStructEntry* runningProcess = runningQueue.head;
     if (runningProcess != NULL) {
         // Increment cputime
-        double potentialNewCputime = runningProcess->cputime + TIME_JIFFY; // Increment cputime
+        float potentialNewCputime = runningProcess->cputime + TIME_JIFFY; // Increment cputime
 
         if (potentialNewCputime >= runningProcess->procTime) {
             runningProcess->cputime = runningProcess->procTime; // Ensure cputime does not exceed procTime
@@ -418,157 +377,5 @@ void roundRobinExecution() {
 
     if (readyQueue.size > 0) {
         transferProcessToRunning();
-    }
-}
-
-void transferProcessesToPriorityQueues() {
-    dStructEntry* current = readyQueue.head;
-    while (current != NULL) {
-        // Next process in the readyQueue before altering the current node
-        dStructEntry* nextProcess = current->next;
-
-        // Determine the priority queue based on niceness
-        int priority = current->niceness;
-        if (priority >= 5) {
-            priority = 5; // Treat niceness >= 5 as highest priority
-        } else if (priority < 1) {
-            priority = 1; // Treat niceness < 1 as lowest priority
-        }
-
-        // Select the appropriate runningQueue based on calculated priority
-        dStruct* targetQueue;
-        switch (priority) {
-            case 1: targetQueue = &runningQueue1; break;
-            case 2: targetQueue = &runningQueue2; break;
-            case 3: targetQueue = &runningQueue3; break;
-            case 4: targetQueue = &runningQueue4; break;
-            case 5: targetQueue = &runningQueue5; break;
-            default: targetQueue = &runningQueue1; // Default to the lowest priority
-        }
-
-        // Add process to the selected runningQueue
-        dStruct_pushEntry(targetQueue, current->pid, 2, current->niceness, current->cputime, current->procTime); // status set to 2 since it is now running
-
-        // Remove process from the readyQueue
-        dStruct_popEntry(&readyQueue);
-
-        // Update current to the next process
-        current = nextProcess;
-    }
-}
-
-void printAllRunningQueues() {
-    printf("Printing all entries in RunningQueue5 (Highest Priority):\n");
-    dStruct_printAllEntries(&runningQueue5);
-
-    printf("\nPrinting all entries in RunningQueue4:\n");
-    dStruct_printAllEntries(&runningQueue4);
-
-    printf("\nPrinting all entries in RunningQueue3:\n");
-    dStruct_printAllEntries(&runningQueue3);
-
-    printf("\nPrinting all entries in RunningQueue2:\n");
-    dStruct_printAllEntries(&runningQueue2);
-
-    printf("\nPrinting all entries in RunningQueue1 (Lowest Priority):\n");
-    dStruct_printAllEntries(&runningQueue1);
-}
-
-void runPriorityRoundRobin() {
-    dStruct* queues[] = {&runningQueue5, &runningQueue4, &runningQueue3, &runningQueue2, &runningQueue1};
-    int i = 0;
-    double timeRun = 0.0;
-
-    while (i < 5) {
-        if (queues[i]->size > 0) {
-            dStructEntry* process = queues[i]->head;
-
-            while (process != NULL) {
-                dStructEntry* nextProcess = process->next; // Next process in the current queue
-                process->cputime += TIME_JIFFY;
-                t += TIME_JIFFY; // Increment global time for each quantum
-                timeRun += TIME_JIFFY;
-
-                // Check if timeRun exceeds TIME_RESET and reset priorities if it does
-                if (timeRun >= TIME_RESET-0.1) { // some weird issue where it only resets after 5.1 instead of 5.0
-                    resetProcessPriorities(queues, 5);
-                    printf("Priority queues have been reset based on niceness.\n");
-                    timeRun = 0.0; // Reset timeRun after resetting priorities
-                }
-
-                // This needs to check all processes if its empty rather than only the current.
-                if (process->cputime >= process->procTime) { 
-                    process->status = 3; // Process has completed execution
-                    // Log before popping the process as completed
-                    logQueueStatus();
-                    dStruct_popSpecificEntry(queues[i], process->pid); // Remove the completed process from its current queue
-                } 
-                else {
-                    // If process hasn't completed and isn't in the lowest queue, move it down one level
-                    if (i < 4) {
-                        dStruct_pushEntry(queues[i + 1], process->pid, process->status, process->niceness, process->cputime, process->procTime);
-                        dStruct_popSpecificEntry(queues[i], process->pid);
-                    } else {
-                        // If process is in the lowest queue, re-queue it at the end of the same queue
-                        dStruct_pushEntry(queues[i], process->pid, process->status, process->niceness, process->cputime, process->procTime);
-                        dStruct_popSpecificEntry(queues[i], process->pid);
-                    }
-                }
-                // Log after every time quantum
-                logQueueStatus();
-                process = nextProcess; // Move to the next process
-            }
-            // Only proceed to the next queue if the current queue is empty
-            if (queues[i]->size == 0) {
-                i++;
-            }
-        } else {
-            i++; // Move to the next queue if the current queue is initially empty
-        }
-    }
-}
-
-void resetProcessPriorities(dStruct* queues[], int numQueues) {
-    dStruct tempQueue;
-    dStruct_init(&tempQueue);
-
-    // Collect all processes
-    for (int i = 0; i < numQueues; i++) {
-        while (queues[i]->size > 0) {
-            dStructEntry* entry = queues[i]->head;
-            while (entry != NULL) {
-                dStructEntry* nextEntry = entry->next;
-                // Temporarily store process information
-                dStruct_pushEntry(&tempQueue, entry->pid, entry->status, entry->niceness, entry->cputime, entry->procTime);
-                // Remove process from current queue
-                dStruct_popSpecificEntry(queues[i], entry->pid);
-                entry = nextEntry;
-            }
-        }
-    }
-
-    // Re-insert processes into their original queues based on niceness
-    dStructEntry* entry = tempQueue.head;
-    while (entry != NULL) {
-        dStructEntry* nextEntry = entry->next;
-        int targetQueueIndex = entry->niceness - 1;
-        targetQueueIndex = targetQueueIndex < 0 ? 0 : targetQueueIndex;
-        targetQueueIndex = targetQueueIndex > 4 ? 4 : targetQueueIndex;
-
-        dStruct_pushEntry(queues[targetQueueIndex], entry->pid, entry->status, entry->niceness, entry->cputime, entry->procTime);
-        dStruct_popSpecificEntry(&tempQueue, entry->pid);
-        entry = nextEntry;
-    }
-
-    // Cleanup
-    dStruct_destroy(&tempQueue);
-}
-
-void checkPriorityEmpty() {
-    // Check if all queues are empty
-    if (runningQueue1.size == 0 && runningQueue2.size == 0 && 
-        runningQueue3.size == 0 && runningQueue4.size == 0 && 
-        runningQueue5.size == 0) {
-        processesRemaining = false; // Set to false if all queues are empty
     }
 }
